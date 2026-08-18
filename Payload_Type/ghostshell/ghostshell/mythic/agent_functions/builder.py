@@ -19,6 +19,7 @@ from mythic_container.PayloadBuilder import (
     PayloadType, BuildParameter, BuildParameterType, BuildResponse,
     BuildStatus, BuildStep,
 )
+from mythic_container.MythicCommandBase import SupportedOS
 from mythic_container.MythicRPC import (
     SendMythicRPCPayloadUpdatebuildStep,
     MythicRPCPayloadUpdateBuildStepMessage,
@@ -36,7 +37,7 @@ class Ghostshell(PayloadType):
     name = "ghostshell"
     file_extension = "py"
     author = "@ghostshell"
-    supported_os = [SupportedOS.Linux, SupportedOS.Windows, SupportedOS.MacOS] if False else None  # set below
+    supported_os = [SupportedOS.Linux, SupportedOS.Windows, SupportedOS.MacOS]
     wrapper = False
     wrapped_payloads = []
     mythic_encrypts = True
@@ -55,9 +56,12 @@ class Ghostshell(PayloadType):
 
     c2_profiles = ["http", "dynamic_http"]
 
-    agent_path = pathlib.Path(__file__).parent / "mythic"
-    agent_code_path = pathlib.Path(__file__).parent / "agent_code"
+    # Path to the agent-side code (compiled into the payload). The builder lives
+    # at ghostshell/mythic/agent_functions/builder.py; agent_code is 3 levels up.
+    agent_path = pathlib.Path(__file__).parent.parent  # ghostshell/mythic/
+    agent_code_path = pathlib.Path(__file__).parent.parent.parent / "agent_code"
     agent_icon_path = agent_path / "ghostshell.svg"
+    agent_browserscript_path = agent_path / "browser_scripts"
 
     build_steps = [
         BuildStep(step_name="Gathering Files", step_description="Reading base agent + commands + c2 adapter"),
@@ -65,11 +69,6 @@ class Ghostshell(PayloadType):
     ]
 
     translation_container = None
-
-    # supported_os must be a module-level import; set it here to avoid the
-    # conditional above (kept simple for readability).
-    from mythic_container.MythicCommandBase import SupportedOS
-    supported_os = [SupportedOS.Linux, SupportedOS.Windows, SupportedOS.MacOS]
 
     async def build(self) -> BuildResponse:
         resp = BuildResponse(status=BuildStatus.Success)
@@ -141,7 +140,7 @@ class Ghostshell(PayloadType):
                 if k != "AESPSK":
                     config[k] = v
 
-            params_literal = "PARAMS = " + json.dumps(config, default=str)
+            params_literal = 'PARAMS = json.loads(' + repr(json.dumps(config, default=str)) + ')'
             main_block = (
                 "\n# === entry point ===\n"
                 "if __name__ == \"__main__\":\n"

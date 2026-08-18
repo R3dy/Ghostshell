@@ -1,9 +1,9 @@
 """Mythic-side definition for the ghostshell `unload` command."""
 
 from mythic_container.MythicCommandBase import (
-    CommandBase, CommandAttributes, TaskArguments, CommandArgument,
+    CommandBase, CommandAttributes, TaskArguments, CommandParameter,
     MythicTask, PTTaskMessageAllData, PTTaskProcessResponseMessageResponse,
-    SupportedOS, ParameterType,
+    SupportedOS, ParameterType, ParameterGroupInfo,
 )
 
 
@@ -11,19 +11,19 @@ class UnloadArguments(TaskArguments):
     def __init__(self, command_line, **kwargs):
         super().__init__(command_line, **kwargs)
         self.args = [
-            CommandArgument(
+            CommandParameter(
                 name="module",
                 type=ParameterType.String,
                 description="The command module to unload from the agent.",
-                parameter_group_info=[{"group_name": "Default", "required": True}],
+                parameter_group_info=[ParameterGroupInfo(required=True, group_name="Default")],
             ),
         ]
 
     async def parse_arguments(self):
         if self.command_line.startswith("{"):
-            await self.load_args_from_json_string(self.command_line)
+            self.load_args_from_json_string(self.command_line)
         else:
-            await self.add_arg("module", self.command_line.strip(), ParameterType.String)
+            self.add_arg("module", self.command_line.strip(), ParameterType.String)
 
 
 class UnloadCommand(CommandBase):

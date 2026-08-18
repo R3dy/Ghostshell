@@ -7,9 +7,9 @@ a chunked file and the task parameters carry the file_id + module name.
 """
 
 from mythic_container.MythicCommandBase import (
-    CommandBase, CommandAttributes, TaskArguments, CommandArgument,
+    CommandBase, CommandAttributes, TaskArguments, CommandParameter,
     MythicTask, PTTaskMessageAllData, PTTaskProcessResponseMessageResponse,
-    SupportedOS, BrowserScript, ParameterType,
+    SupportedOS, BrowserScript, ParameterType, ParameterGroupInfo,
 )
 from mythic_container.MythicRPC import MythicRPC
 
@@ -18,26 +18,26 @@ class LoadArguments(TaskArguments):
     def __init__(self, command_line, **kwargs):
         super().__init__(command_line, **kwargs)
         self.args = [
-            CommandArgument(
+            CommandParameter(
                 name="module",
                 type=ParameterType.String,
                 description="The command module to load into the agent.",
-                parameter_group_info=[{"group_name": "Default", "required": True}],
+                parameter_group_info=[ParameterGroupInfo(required=True, group_name="Default")],
             ),
-            CommandArgument(
+            CommandParameter(
                 name="file_id",
                 type=ParameterType.File,
                 description="Mythic-staged file id of the command's agent code.",
-                parameter_group_info=[{"group_name": "Default", "required": True}],
+                parameter_group_info=[ParameterGroupInfo(required=True, group_name="Default")],
             ),
         ]
 
     async def parse_arguments(self):
         if self.command_line.startswith("{"):
-            await self.load_args_from_json_string(self.command_line)
+            self.load_args_from_json_string(self.command_line)
         else:
             # tolerate "load <module>" typed at the prompt
-            await self.add_arg("module", self.command_line.strip(), ParameterType.String)
+            self.add_arg("module", self.command_line.strip(), ParameterType.String)
 
 
 class LoadCommand(CommandBase):
