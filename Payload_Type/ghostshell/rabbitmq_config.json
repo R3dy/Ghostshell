@@ -1,0 +1,18 @@
+{
+  "mythic": {
+    "rpc": {
+      "host": "mythic_rabbitmq",
+      "port": 5672,
+      "username": "mythic_user",
+      "password": "mythic_password",
+      "virtual_host": "mythic_vhost"
+    },
+    "logging": {
+      "level": "INFO"
+    }
+  },
+  "payload": {
+    "name": "ghostshell",
+    "description": "A minimal, modular MythicC2 Python payload for teaching tradecraft."
+  }
+}
