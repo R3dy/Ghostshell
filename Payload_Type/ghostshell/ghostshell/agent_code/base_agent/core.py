@@ -216,7 +216,18 @@ class GhostshellAgent:
         remaining = []
         for task in self.taskings:
             if task["completed"]:
-                out = {"task_id": task["task_id"], "user_output": task["result"], "completed": True}
+                out = {"task_id": task["task_id"], "completed": True}
+                if isinstance(task["result"], dict):
+                    # Structured output (e.g. `ps` returns {"processes": {...}}
+                    # for Mythic's process browser): spread the dict's keys
+                    # into the response envelope. Mythic routes per-key:
+                    # "processes" feeds the unified process list, everything
+                    # else lands in the response's structured fields.
+                    out.update(task["result"])
+                    if "user_output" not in out:
+                        out["user_output"] = "Process listing returned (see Process Browser)."
+                else:
+                    out["user_output"] = task["result"]
                 if task["error"]:
                     out["status"] = "error"
                 responses.append(out)
